@@ -1,7 +1,9 @@
 require("dotenv").config({ path: "C:\\Users\\c plug computers\\Desktop\\Blockchain\\.env" });
+console.log("ETH_WS_URL:", process.env.ETH_WS_URL);
+console.log("BSC_WS_URL:", process.env.BSC_WS_URL);
 const express = require("express");
 const mongoose = require("mongoose");
-const { ethers } = require("ethers");
+const ethers = require("ethers");
 const { getEvmProvider, factoryAddresses, WETH } = require("./providers/evmProvider");
 const { solanaProvider } = require("./providers/solanaProvider");
 const { processSwapEvent, initializeDataForPair } = require("./dataProcessor");
@@ -41,7 +43,7 @@ async function initializePairs() {
     ], provider);
     try {
       const pairAddress = await factoryContract.getPair(tokenAddress, WETH[chain]);
-      if (pairAddress !== ethers.constants.AddressZero) {
+      if (pairAddress !== ethers.constants.AddressZero) { // v5.x syntax
         console.log(`Initializing ${chain} pair: ${pairAddress}`);
         trackedPairs.set(`${chain}:${tokenAddress}`, pairAddress);
         initializeDataForPair(provider, pairAddress, chain); // Async, no await
@@ -55,7 +57,7 @@ async function initializePairs() {
           processSwapEvent(event, chain, provider).catch(console.error);
         });
         pairContract.on("Transfer", async (from, to, value) => {
-          if (from === ethers.constants.AddressZero) {
+          if (from === ethers.constants.AddressZero) { // v5.x syntax
             await MarketMaker.findOneAndUpdate(
               { chain, pairAddress, address: to },
               { chain, pairAddress, address: to, liquidity: value.toString(), fees: "0", profitLoss: "0" },
@@ -77,7 +79,7 @@ app.get("/token/:chain/:address", async (req, res) => {
   const { chain, address: tokenAddress } = req.params;
 
   try {
-    if (!ethers.utils.isAddress(tokenAddress) && chain !== "solana") {
+    if (!ethers.utils.isAddress(tokenAddress) && chain !== "solana") { // v5.x syntax
       return res.status(400).json({ error: "Invalid token address" });
     }
 
@@ -100,7 +102,7 @@ app.get("/token/:chain/:address", async (req, res) => {
           "function getPair(address tokenA, address tokenB) view returns (address pair)",
         ], provider);
         pairAddress = await factoryContract.getPair(tokenAddress, WETH[chain]);
-        if (pairAddress === ethers.constants.AddressZero) {
+        if (pairAddress === ethers.constants.AddressZero) { // v5.x syntax
           return res.status(404).json({ error: "No trading pair found" });
         }
         trackedPairs.set(`${chain}:${tokenAddress}`, pairAddress);
