@@ -1,5 +1,5 @@
 require("dotenv").config({ path: "C:\\Users\\c plug computers\\Desktop\\Blockchain\\.env" });
-console.log("ETH_WS_URL:", process.env.ETH_WS_URL);
+console.log("ETHEREUM_WS_URL:", process.env.ETHEREUM_WS_URL);
 console.log("BSC_WS_URL:", process.env.BSC_WS_URL);
 const express = require("express");
 const mongoose = require("mongoose");

@@ -27,7 +27,7 @@ const WETH = {
   base: "0x4200000000000000000000000000000000000006",
 };
 
-function connectEvmProvider(chain) {
+async function connectEvmProvider(chain) {
   const url = process.env[`${chain.toUpperCase()}_WS_URL`];
   console.log(`Loading ${chain.toUpperCase()}_WS_URL: ${url}`);
   if (!url) {
@@ -35,56 +35,67 @@ function connectEvmProvider(chain) {
     return null;
   }
 
+  if (providers[chain] && providers[chain]._wsReady) {
+    console.log(`Provider for ${chain} already connected and ready`);
+    return providers[chain];
+  }
+
   let provider;
   try {
-    console.log(`Attempting to create WebSocketProvider for ${chain} with URL: ${url}`);
+    console.log(`Attempting to connect to ${chain} at ${url}`);
     provider = new ethers.providers.WebSocketProvider(url);
-
-    // Set up WebSocket event handlers immediately
-    provider._websocket.on("error", (err) => {
-      console.error(`WebSocket Error for ${chain} during initialization:`, err.message);
-      providers[chain] = null;
-      setTimeout(() => connectEvmProvider(chain), 1000);
-    });
 
     provider._websocket.on("open", () => {
       console.log(`WebSocket opened for ${chain}`);
+      providers[chain] = provider;
+    });
+
+    provider._websocket.on("error", (err) => {
+      console.error(`WebSocket Error for ${chain}:`, err.message);
+      if (providers[chain] === provider) {
+        providers[chain] = null;
+        setTimeout(() => connectEvmProvider(chain), 5000);
+      }
     });
 
     provider._websocket.on("close", (code, reason) => {
-      console.log(`WebSocket closed for ${chain} (code: ${code}, reason: ${reason}), reconnecting...`);
-      providers[chain] = null;
-      setTimeout(() => connectEvmProvider(chain), 1000);
+      console.log(`WebSocket closed for ${chain} (code: ${code}, reason: ${reason})`);
+      if (providers[chain] === provider) {
+        providers[chain] = null;
+        setTimeout(() => connectEvmProvider(chain), 5000);
+      }
     });
 
-    console.log(`Provider created for ${chain}`);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (!provider._wsReady) {
+      console.error(`WebSocket for ${chain} not ready after 1s`);
+      return null;
+    }
+
+    console.log(`Provider initialized for ${chain}`);
+    return provider;
   } catch (error) {
     console.error(`Failed to initialize WebSocket provider for ${chain}:`, error.message);
     return null;
   }
-
-  if (!provider) {
-    console.error(`Provider is null or undefined for ${chain}`);
-    return null;
-  }
-
-  // Additional runtime error handling
-  provider.on("error", (err) => {
-    console.error(`WebSocket Runtime Error for ${chain}:`, err.message);
-    providers[chain] = null;
-    setTimeout(() => connectEvmProvider(chain), 1000);
-  });
-
-  provider.on("debug", (info) => {
-    console.log(`Debug info for ${chain}:`, info);
-  });
-
-  return provider;
 }
 
 function getEvmProvider(chain) {
   if (!providers[chain]) {
-    providers[chain] = connectEvmProvider(chain);
+    console.log(`Provider for ${chain} not found, initializing`);
+    const provider = connectEvmProvider(chain);
+    if (provider) {
+      providers[chain] = provider;
+    }
+  } else if (!providers[chain]._wsReady) {
+    console.log(`Provider for ${chain} exists but not ready, reinitializing`);
+    providers[chain] = null;
+    const provider = connectEvmProvider(chain);
+    if (provider) {
+      providers[chain] = provider;
+    }
+  } else {
+    console.log(`Returning existing provider for ${chain}`);
   }
   return providers[chain];
 }
